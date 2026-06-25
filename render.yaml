@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: pixelarc-api
+    runtime: python
+    plan: free
+    buildCommand: >
+      pip install "setuptools<82" wheel &&
+      pip install --extra-index-url https://download.pytorch.org/whl/cpu
+      flask flask-cors Pillow numpy gunicorn &&
+      pip install "huggingface_hub==0.25.2" &&
+      pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision &&
+      pip install --no-build-isolation git+https://github.com/sberbank-ai/Real-ESRGAN.git
+    startCommand: gunicorn app:app --timeout 300 --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
