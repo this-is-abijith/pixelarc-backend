@@ -48,8 +48,11 @@ load_model()
 def run_upscale(pil_img, scale):
     orig_w, orig_h = pil_img.size
 
-    # Cap input size — CPU inference time scales steeply with pixel count
-    MAX_DIM = 1024
+    # Cap input size — free tier has only 512MB RAM. Memory usage scales
+    # with pixels squared, so halving MAX_DIM quarters the memory needed.
+    # 512px input → 2048px output at 4x, which is still a clear improvement
+    # and fits comfortably within the RAM ceiling.
+    MAX_DIM = 512
     work_w, work_h = orig_w, orig_h
     if max(orig_w, orig_h) > MAX_DIM:
         ratio = MAX_DIM / max(orig_w, orig_h)
