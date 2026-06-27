@@ -10,7 +10,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from PIL import Image
-import io, os, base64, traceback, torch
+import io, os, base64, traceback
 
 app = Flask(__name__)
 CORS(app)
@@ -25,34 +25,18 @@ print(f"  Device: {DEVICE}")
 MODEL = None
 AI_AVAILABLE = False
 
-def load_model():
-    global MODEL, AI_AVAILABLE
-    try:
-        from RealESRGAN import RealESRGAN
-        print("  Loading RealESRGAN x4 weights...")
-        model = RealESRGAN(DEVICE, scale=4)
-        model.load_weights(
-            os.path.join(WEIGHTS_DIR, "RealESRGAN_x4.pth"),
-            download=True
-        )
-        MODEL = model
-        AI_AVAILABLE = True
-        print("  ✅ Model loaded successfully")
-    except Exception as e:
-        print(f"  ⚠️  Model load failed: {e}")
-        AI_AVAILABLE = False
-
-load_model()
+# Real-ESRGAN PyTorch model exceeds Render free tier's 512MB RAM limit
+# during inference. Using high-quality Pillow (Lanczos) upscaling instead
+# for the cloud version. Local development uses the full GPU binary.
+print("  Using Pillow upscaling (cloud/free-tier mode)")
 
 
 def run_upscale(pil_img, scale):
     orig_w, orig_h = pil_img.size
 
-    # Cap input size — free tier has only 512MB RAM. Memory usage scales
-    # with pixels squared, so halving MAX_DIM quarters the memory needed.
-    # 512px input → 2048px output at 4x, which is still a clear improvement
-    # and fits comfortably within the RAM ceiling.
-    MAX_DIM = 512
+    # Without the AI model, RAM usage is minimal — raise the cap back up
+    # so users get a larger, more useful output image.
+    MAX_DIM = 1600
     work_w, work_h = orig_w, orig_h
     if max(orig_w, orig_h) > MAX_DIM:
         ratio = MAX_DIM / max(orig_w, orig_h)
@@ -90,9 +74,10 @@ def run_upscale(pil_img, scale):
 def health():
     return jsonify({
         "status": "ok",
-        "ai_available": AI_AVAILABLE,
-        "device": str(DEVICE),
-        "engine": "realesrgan-pytorch",
+        "ai_available": False,
+        "device": "cpu",
+        "engine": "pillow",
+        "mode": "cloud-free-tier",
     })
 
 
