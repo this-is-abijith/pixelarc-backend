@@ -15,19 +15,8 @@ import io, os, base64, traceback
 app = Flask(__name__)
 CORS(app)
 
-# ── Model setup ──────────────────────────────────────────────────────────
-WEIGHTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weights")
-os.makedirs(WEIGHTS_DIR, exist_ok=True)
-
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"  Device: {DEVICE}")
-
 MODEL = None
 AI_AVAILABLE = False
-
-# Real-ESRGAN PyTorch model exceeds Render free tier's 512MB RAM limit
-# during inference. Using high-quality Pillow (Lanczos) upscaling instead
-# for the cloud version. Local development uses the full GPU binary.
 print("  Using Pillow upscaling (cloud/free-tier mode)")
 
 
@@ -44,28 +33,8 @@ def run_upscale(pil_img, scale):
         pil_img = pil_img.resize((work_w, work_h), Image.LANCZOS)
         print(f"  Resized {orig_w}x{orig_h} → {work_w}x{work_h}")
 
-    result_img = None
+    result_img = pil_img.resize((work_w * scale, work_h * scale), Image.LANCZOS)
     method = "pillow"
-
-    if AI_AVAILABLE:
-        try:
-            with torch.no_grad():
-                result_img = MODEL.predict(pil_img).convert("RGB")
-
-            # Model always outputs 4x — resize down if 2x/3x was requested
-            if scale != 4:
-                result_img = result_img.resize(
-                    (work_w * scale, work_h * scale), Image.LANCZOS
-                )
-            method = "realesrgan-pytorch"
-
-        except Exception as e:
-            print(f"  ⚠️  Inference failed: {e}")
-            result_img = None
-
-    if result_img is None:
-        result_img = pil_img.resize((work_w * scale, work_h * scale), Image.LANCZOS)
-        method = "pillow_fallback"
 
     return result_img, method, orig_w, orig_h
 
